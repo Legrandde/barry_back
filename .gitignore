@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environnement & base locale
+.env
+*.db
+*.db-journal
+*.sqlite3
+
+# Médias téléversés
+media/*
+!media/.gitkeep
+
+# Base GeoIP (téléchargée au build via `uv run python -m db.download_geoip`)
+data/*.mmdb
+data/*.mmdb.part
+
+# IDE
+.idea/
+.vscode/

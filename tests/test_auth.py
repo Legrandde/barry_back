@@ -55,3 +55,53 @@ def test_change_username_returns_new_token(client, auth_headers):
     me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {new_token}"})
     assert me.status_code == 200
     assert me.json()["username"] == "barry_admin"
+
+
+def test_two_factor_auth_full_lifecycle(client, auth_headers):
+    from core.totp import totp_at
+
+    # Initialement désactivée
+    assert client.get("/api/auth/me", headers=auth_headers).json()["totpEnabled"] is False
+
+    # Setup 2FA
+    setup = client.post("/api/auth/2fa/setup", headers=auth_headers)
+    assert setup.status_code == 200
+    secret = setup.json()["secret"]
+    assert setup.json()["otpauthUri"].startswith("otpauth://totp/")
+
+    # Mauvais code refusé à l'activation
+    assert client.post("/api/auth/2fa/enable", json={"code": "000000"}, headers=auth_headers).status_code == 422
+
+    # Bon code active la 2FA
+    assert client.post("/api/auth/2fa/enable", json={"code": totp_at(secret)}, headers=auth_headers).status_code == 204
+    assert client.get("/api/auth/me", headers=auth_headers).json()["totpEnabled"] is True
+
+    # Connexion demande désormais la 2FA et ne donne pas d'access_token
+    step1 = client.post("/api/auth/login", data=ADMIN_CREDENTIALS)
+    assert step1.status_code == 200
+    body = step1.json()
+    assert body["requires_2fa"] is True
+    assert body["challenge_token"]
+    assert body["access_token"] == ""
+
+    # Le challenge_token ne peut PAS accéder aux routes admin
+    assert client.get("/api/auth/me", headers={"Authorization": f"Bearer {body['challenge_token']}"}).status_code == 401
+
+    # Validation étape 2 avec le code TOTP -> vrai access_token
+    step2 = client.post(
+        "/api/auth/verify-2fa",
+        json={"challengeToken": body["challenge_token"], "code": totp_at(secret)},
+    )
+    assert step2.status_code == 200
+    final_token = step2.json()["access_token"]
+    assert final_token
+    assert client.get("/api/auth/me", headers={"Authorization": f"Bearer {final_token}"}).status_code == 200
+
+    # Désactivation de la 2FA
+    dis = client.post(
+        "/api/auth/2fa/disable",
+        json={"currentPassword": "test-password", "code": totp_at(secret)},
+        headers={"Authorization": f"Bearer {final_token}"},
+    )
+    assert dis.status_code == 204
+    assert client.get("/api/auth/me", headers={"Authorization": f"Bearer {final_token}"}).json()["totpEnabled"] is False

@@ -13,6 +13,8 @@ _SCRYPT_N = 2**14
 _SCRYPT_R = 8
 _SCRYPT_P = 1
 
+_TWO_FACTOR_EXPIRE_SECONDS = 300  # 5 minutes pour saisir le code 2FA
+
 
 def hash_password(password: str) -> str:
     salt = secrets.token_bytes(16)
@@ -42,18 +44,43 @@ def verify_password(password: str, hashed_password: str) -> bool:
 
 
 def create_access_token(subject: str) -> tuple[str, int]:
-    """Retourne le token JWT et sa durée de validité en secondes."""
+    """Retourne le token JWT d'accès complet et sa durée de validité en secondes."""
     expires_in = settings.access_token_expire_minutes * 60
     now = datetime.now(UTC)
-    payload = {"sub": subject, "iat": now, "exp": now + timedelta(seconds=expires_in)}
+    payload = {"sub": subject, "scope": "access", "iat": now, "exp": now + timedelta(seconds=expires_in)}
     token = jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
     return token, expires_in
 
 
+def create_2fa_challenge_token(subject: str) -> str:
+    """Token temporaire (5 min) utilisable uniquement pour valider le code 2FA."""
+    now = datetime.now(UTC)
+    payload = {
+        "sub": subject,
+        "scope": "2fa",
+        "iat": now,
+        "exp": now + timedelta(seconds=_TWO_FACTOR_EXPIRE_SECONDS),
+    }
+    return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
+
+
 def decode_access_token(token: str) -> str | None:
-    """Retourne le sujet (username) du token, ou None si le token est invalide ou expiré."""
+    """Retourne le username si le token est un vrai token d'accès (refuse les tokens 2fa)."""
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
     except jwt.PyJWTError:
+        return None
+    if payload.get("scope") == "2fa":
+        return None
+    return payload.get("sub")
+
+
+def decode_2fa_challenge_token(token: str) -> str | None:
+    """Retourne le username si le token est un challenge 2FA valide."""
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
+    except jwt.PyJWTError:
+        return None
+    if payload.get("scope") != "2fa":
         return None
     return payload.get("sub")

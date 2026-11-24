@@ -59,17 +59,20 @@ class SiteSection(CamelModel):
 
 # Polices proposées
 HeadingFont = Literal[
+    "Satoshi",
+    "Plus Jakarta Sans",
     "Inter",
     "Poppins",
     "Montserrat",
     "DM Sans",
-    "Satoshi",
     "Bricolage Grotesque",
     "Playfair Display",
     "Lora",
     "system-sans",
 ]
 BodyFont = Literal[
+    "Satoshi",
+    "Plus Jakarta Sans",
     "Inter",
     "DM Sans",
     "Manrope",
@@ -77,7 +80,6 @@ BodyFont = Literal[
     "Lato",
     "Open Sans",
     "Nunito",
-    "Satoshi",
     "system-sans",
 ]
 
@@ -89,13 +91,20 @@ class ThemeSection(CamelModel):
         description="Couleur principale, format #RRGGBB (ex: #f59e0b)"
     )
     default_mode: Literal["light", "dark", "system"] = "light"
-    heading_font: HeadingFont = "Inter"
-    body_font: BodyFont = "Inter"
+    heading_font: HeadingFont = "Satoshi"
+    body_font: BodyFont = "Satoshi"
+
+
+HeroLayout = Literal["classic", "centered", "editorial", "poster", "minimal"]
 
 
 class HeroSection(CamelModel):
-    """Bannière principale (Banner) en haut du portfolio."""
+    """Bannière principale (Banner) en haut du portfolio, déclinée en 5 modèles."""
 
+    layout: HeroLayout = Field(
+        "classic",
+        description="Modèle de bannière : classic, centered, editorial, poster ou minimal",
+    )
     greeting: ShortText = "Bonjour, je suis"
     first_name: RequiredText
     last_name: RequiredText
@@ -105,6 +114,7 @@ class HeroSection(CamelModel):
     image_alt: ShortText = ""
     cta_label: RequiredText
     cta_href: ShortText = "#projets"
+    availability_badge: ShortText = "Disponible pour nouveaux projets"
     tech_logos: list[ShortText] = Field(
         default_factory=list,
         max_length=12,

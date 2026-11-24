@@ -48,3 +48,39 @@ def test_visibility_toggle_and_non_hideable(client, auth_headers):
             headers=auth_headers,
         )
         assert blocked.status_code == 422
+
+
+def test_hero_layout_and_theme_customization(client, auth_headers):
+    for layout in ("classic", "centered", "editorial", "poster", "minimal"):
+        res = client.patch(
+            "/api/admin/sections/hero",
+            json={"layout": layout, "availabilityBadge": "Ouvert aux missions"},
+            headers=auth_headers,
+        )
+        assert res.status_code == 200
+        assert res.json()["layout"] == layout
+        assert res.json()["availabilityBadge"] == "Ouvert aux missions"
+
+    bad_layout = client.patch(
+        "/api/admin/sections/hero",
+        json={"layout": "inconnu"},
+        headers=auth_headers,
+    )
+    assert bad_layout.status_code == 422
+
+    theme_res = client.patch(
+        "/api/admin/sections/theme",
+        json={
+            "accentColor": "#2563eb",
+            "headingFont": "Plus Jakarta Sans",
+            "bodyFont": "Inter",
+            "defaultMode": "dark",
+        },
+        headers=auth_headers,
+    )
+    assert theme_res.status_code == 200
+    body = theme_res.json()
+    assert body["accentColor"] == "#2563eb"
+    assert body["headingFont"] == "Plus Jakarta Sans"
+    assert body["bodyFont"] == "Inter"
+    assert body["defaultMode"] == "dark"

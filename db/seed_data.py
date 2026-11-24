@@ -30,6 +30,7 @@ SECTIONS: dict[SectionKey, dict] = {
         "body_font": "Inter",
     },
     SectionKey.HERO: {
+        "layout": "classic",
         "greeting": "Bonjour, je suis",
         "first_name": "Alhassane",
         "last_name": "Barry",
@@ -42,6 +43,7 @@ SECTIONS: dict[SectionKey, dict] = {
         "image_alt": "Alhassane Barry",
         "cta_label": "Découvrir mes projets",
         "cta_href": "#projets",
+        "availability_badge": "Disponible pour nouveaux projets",
         "tech_logos": [
             "github",
             "docker",

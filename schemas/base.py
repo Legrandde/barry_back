@@ -1,14 +1,24 @@
 from typing import Annotated, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, create_model
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, create_model
 from pydantic.alias_generators import to_camel
+
+
+def _validate_safe_url(value: str) -> str:
+    """Interdit les schémas dangereux (javascript:, vbscript:, data:) dans les liens."""
+    lowered = value.strip().lower()
+    if lowered.startswith(("javascript:", "vbscript:", "data:")):
+        raise ValueError("Schéma d'URL interdit.")
+    return value
+
 
 # Types de champs réutilisables
 RequiredText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
 ShortText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=255)]
 LongText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=5000)]
 # Chemin relatif (ex: "barry.png", servi par le site) ou URL absolue (média téléversé)
-MediaPath = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500)]
+MediaPath = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500), AfterValidator(_validate_safe_url)]
+SafeUrl = Annotated[str, StringConstraints(strip_whitespace=True, max_length=500), AfterValidator(_validate_safe_url)]
 Position = Annotated[int, Field(ge=0)]
 
 

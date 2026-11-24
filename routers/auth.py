@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from core.deps import CurrentAdmin, DbSession
+from core.rate_limit import rate_limit
 from core.security import (
     create_2fa_challenge_token,
     create_access_token,
@@ -24,7 +25,11 @@ from services import auth as auth_service
 router = APIRouter(prefix="/api/auth", tags=["Authentification"])
 
 
-@router.post("/login", response_model=Token)
+@router.post(
+    "/login",
+    response_model=Token,
+    dependencies=[Depends(rate_limit("login", max_requests=10, window_seconds=60))],
+)
 def login(form: Annotated[OAuth2PasswordRequestForm, Depends()], db: DbSession):
     admin = auth_service.authenticate(db, form.username, form.password)
     if admin is None:
@@ -36,11 +41,15 @@ def login(form: Annotated[OAuth2PasswordRequestForm, Depends()], db: DbSession):
     if admin.totp_enabled and admin.totp_secret:
         challenge = create_2fa_challenge_token(admin.username)
         return Token(requires_2fa=True, challenge_token=challenge)
-    token, expires_in = create_access_token(admin.username)
+    token, expires_in = create_access_token(admin.username, admin.token_version)
     return Token(access_token=token, expires_in=expires_in, requires_2fa=False)
 
 
-@router.post("/verify-2fa", response_model=Token)
+@router.post(
+    "/verify-2fa",
+    response_model=Token,
+    dependencies=[Depends(rate_limit("verify-2fa", max_requests=5, window_seconds=60))],
+)
 def verify_2fa(payload: TwoFactorVerifyPayload, db: DbSession):
     """Étape 2 de la connexion : valide le code à 6 chiffres et renvoie le vrai token d'accès."""
     username = decode_2fa_challenge_token(payload.challenge_token)
@@ -50,7 +59,7 @@ def verify_2fa(payload: TwoFactorVerifyPayload, db: DbSession):
             detail="Session 2FA expirée. Veuillez vous reconnecter.",
         )
     admin = auth_service.verify_2fa_for_username(db, username, payload.code)
-    token, expires_in = create_access_token(admin.username)
+    token, expires_in = create_access_token(admin.username, admin.token_version)
     return Token(access_token=token, expires_in=expires_in, requires_2fa=False)
 
 
@@ -68,7 +77,7 @@ def change_password(payload: PasswordChange, admin: CurrentAdmin, db: DbSession)
 def change_username(payload: UsernameChange, admin: CurrentAdmin, db: DbSession):
     """Le token porte l'identifiant : un nouveau token est renvoyé, l'ancien devient invalide."""
     auth_service.change_username(db, admin, payload.current_password, payload.new_username)
-    token, expires_in = create_access_token(admin.username)
+    token, expires_in = create_access_token(admin.username, admin.token_version)
     return Token(access_token=token, expires_in=expires_in)
 
 

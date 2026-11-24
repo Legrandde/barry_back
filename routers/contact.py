@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, status
 
 from core.deps import DbSession, get_current_admin
+from core.rate_limit import rate_limit
 from schemas.contact import ContactMessageCreate, ContactMessageRead, ContactMessageUpdate, UnreadCount
 from services import contact as contact_service
 
@@ -13,7 +14,11 @@ admin_router = APIRouter(
 )
 
 
-@public_router.post("/contact", status_code=status.HTTP_204_NO_CONTENT)
+@public_router.post(
+    "/contact",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(rate_limit("contact", max_requests=5, window_seconds=60))],
+)
 def send_message(data: ContactMessageCreate, db: DbSession):
     """Message du formulaire de contact, à lire dans l'espace admin."""
     contact_service.create_message(db, data)

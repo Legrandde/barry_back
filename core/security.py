@@ -43,11 +43,17 @@ def verify_password(password: str, hashed_password: str) -> bool:
     return hmac.compare_digest(digest, expected)
 
 
-def create_access_token(subject: str) -> tuple[str, int]:
+def create_access_token(subject: str, token_version: int = 0) -> tuple[str, int]:
     """Retourne le token JWT d'accès complet et sa durée de validité en secondes."""
     expires_in = settings.access_token_expire_minutes * 60
     now = datetime.now(UTC)
-    payload = {"sub": subject, "scope": "access", "iat": now, "exp": now + timedelta(seconds=expires_in)}
+    payload = {
+        "sub": subject,
+        "scope": "access",
+        "ver": token_version,
+        "iat": now,
+        "exp": now + timedelta(seconds=expires_in),
+    }
     token = jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
     return token, expires_in
 
@@ -64,15 +70,19 @@ def create_2fa_challenge_token(subject: str) -> str:
     return jwt.encode(payload, settings.secret_key, algorithm=settings.jwt_algorithm)
 
 
-def decode_access_token(token: str) -> str | None:
-    """Retourne le username si le token est un vrai token d'accès (refuse les tokens 2fa)."""
+def decode_access_token(token: str) -> tuple[str, int] | None:
+    """Retourne (username, token_version) si le token est un vrai token d'accès (refuse les tokens 2fa)."""
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.jwt_algorithm])
     except jwt.PyJWTError:
         return None
     if payload.get("scope") == "2fa":
         return None
-    return payload.get("sub")
+    sub = payload.get("sub")
+    if not isinstance(sub, str):
+        return None
+    ver = payload.get("ver", 0)
+    return sub, int(ver) if isinstance(ver, int) else 0
 
 
 def decode_2fa_challenge_token(token: str) -> str | None:

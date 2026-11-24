@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, String, false
+from sqlalchemy import Boolean, Integer, String, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from db.base import Base
@@ -13,3 +13,4 @@ class Admin(TimestampMixin, Base):
     hashed_password: Mapped[str] = mapped_column(String(255))
     totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
     totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")

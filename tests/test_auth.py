@@ -105,3 +105,32 @@ def test_two_factor_auth_full_lifecycle(client, auth_headers):
     )
     assert dis.status_code == 204
     assert client.get("/api/auth/me", headers={"Authorization": f"Bearer {final_token}"}).json()["totpEnabled"] is False
+
+
+def test_security_hardening_jwt_revocation_headers_and_rate_limit(client, auth_headers):
+    # En-têtes de sécurité HTTP présents
+    health = client.get("/api/health")
+    assert health.status_code == 200
+    assert health.headers["X-Content-Type-Options"] == "nosniff"
+    assert health.headers["X-Frame-Options"] == "DENY"
+    assert health.headers["Referrer-Policy"] == "strict-origin-when-cross-origin"
+
+    # Rejet des URLs javascript:
+    bad_url = client.patch("/api/admin/sections/hero", json={"image": "javascript:alert(1)"}, headers=auth_headers)
+    assert bad_url.status_code == 422
+
+    # Le changement de mot de passe révoque immédiatement l'ancien JWT
+    res = client.put(
+        "/api/auth/password",
+        json={"currentPassword": "test-password", "newPassword": "new-secure-password-2026"},
+        headers=auth_headers,
+    )
+    assert res.status_code == 204
+    assert client.get("/api/auth/me", headers=auth_headers).status_code == 401
+
+    # Rate-limit sur /api/auth/login (auth_headers a déjà consommé 1 tentative, 9 autres passent, la 11e renvoie 429)
+    for _ in range(9):
+        attempt = client.post("/api/auth/login", data={"username": "admin", "password": "wrong"})
+        assert attempt.status_code == 401
+    blocked = client.post("/api/auth/login", data={"username": "admin", "password": "wrong"})
+    assert blocked.status_code == 429

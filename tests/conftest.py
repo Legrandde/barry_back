@@ -14,6 +14,7 @@ os.environ["ENVIRONMENT"] = "test"
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
+from core.rate_limit import reset_rate_limits  # noqa: E402
 from db.base import Base  # noqa: E402
 from db.session import engine  # noqa: E402
 from main import app  # noqa: E402
@@ -24,6 +25,7 @@ ADMIN_CREDENTIALS = {"username": "admin", "password": "test-password"}
 @pytest.fixture
 def client():
     # Base vierge à chaque test : le lifespan recrée les tables et le contenu initial
+    reset_rate_limits()
     Base.metadata.drop_all(engine)
     with TestClient(app) as test_client:
         yield test_client

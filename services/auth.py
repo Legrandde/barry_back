@@ -7,9 +7,15 @@ from models import Admin
 from services.exceptions import ConflictError, InvalidDataError
 
 
+_DUMMY_HASH = hash_password("timing-padding-placeholder-not-used")
+
+
 def authenticate(db: Session, username: str, password: str) -> Admin | None:
     admin = db.scalar(select(Admin).where(Admin.username == username))
-    if admin is None or not verify_password(password, admin.hashed_password):
+    if admin is None:
+        verify_password(password, _DUMMY_HASH)
+        return None
+    if not verify_password(password, admin.hashed_password):
         return None
     return admin
 
@@ -18,6 +24,7 @@ def change_password(db: Session, admin: Admin, current_password: str, new_passwo
     if not verify_password(current_password, admin.hashed_password):
         raise InvalidDataError("Le mot de passe actuel est incorrect.")
     admin.hashed_password = hash_password(new_password)
+    admin.token_version += 1
     db.commit()
 
 

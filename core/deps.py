@@ -15,9 +15,9 @@ DbSession = Annotated[Session, Depends(get_db)]
 
 
 def get_current_admin(token: Annotated[str, Depends(oauth2_scheme)], db: DbSession) -> Admin:
-    username = decode_access_token(token)
-    admin = db.scalar(select(Admin).where(Admin.username == username)) if username else None
-    if admin is None:
+    decoded = decode_access_token(token)
+    admin = db.scalar(select(Admin).where(Admin.username == decoded[0])) if decoded else None
+    if admin is None or decoded is None or admin.token_version != decoded[1]:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Session invalide ou expirée. Veuillez vous reconnecter.",

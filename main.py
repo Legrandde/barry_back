@@ -30,14 +30,29 @@ app = FastAPI(
     version="1.0.0",
     description="Mini CMS permettant à l'admin de modifier tout le contenu du portfolio d'Alhassane Barry sans redéploiement.",
     lifespan=lifespan,
+    docs_url=None if settings.is_production else "/docs",
+    redoc_url=None if settings.is_production else "/redoc",
+    openapi_url=None if settings.is_production else "/openapi.json",
 )
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    if settings.is_production:
+        response.headers.setdefault("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
+    return response
 
 
 @app.exception_handler(ServiceError)
@@ -60,6 +75,6 @@ settings.media_dir.mkdir(parents=True, exist_ok=True)
 app.mount(settings.media_url_path, StaticFiles(directory=settings.media_dir), name="media")
 
 
-@app.get("/api/health", tags=["Santé"])
+@app.api_route("/api/health", methods=["GET", "HEAD"], tags=["Santé"])
 def health() -> dict[str, str]:
     return {"status": "ok"}

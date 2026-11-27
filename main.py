@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from core.config import settings
 from db.init_db import init_db
-from routers import analytics, auth, collections, contact, media, public, sections
+from routers import analytics, auth, collections, contact, media, prospects, public, sections
 from services.exceptions import ServiceError
 
 logger = logging.getLogger("uvicorn.error")
@@ -68,6 +68,7 @@ app.include_router(sections.router)
 for router in collections.routers:
     app.include_router(router)
 app.include_router(media.router)
+app.include_router(prospects.router)
 app.include_router(analytics.admin_router)
 app.include_router(contact.admin_router)
 

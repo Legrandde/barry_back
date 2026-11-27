@@ -5,6 +5,7 @@ from models.education import Education
 from models.experience import Experience
 from models.media import Media
 from models.project import Project
+from models.prospect import Prospect, ProspectDocument, ProspectInteraction
 from models.section import Section
 from models.service import ServiceItem
 from models.skill_category import SkillCategory
@@ -19,6 +20,9 @@ __all__ = [
     "Experience",
     "Media",
     "Project",
+    "Prospect",
+    "ProspectDocument",
+    "ProspectInteraction",
     "Section",
     "ServiceItem",
     "SkillCategory",
